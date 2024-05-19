@@ -39,15 +39,8 @@ executable lc-reasoner
     LC.Syntax.Named
     LC.Syntax.DeBruijn
     LC.Reasoner
-    Tutorial
 
   build-depends:
     base >=4.16 && <5
     , ideas
     , containers ^>= 0.6.7
-    -- , async ^>= 2.2.5
-    -- , directory ^>= 1.3.8
-    -- , filepath ^>= 1.4.100
-    -- , megaparsec ^>= 9.6.1
-    -- , optparse-applicative ^>= 0.18.1
-    -- , process ^>= 1.6.18
