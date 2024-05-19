@@ -2,12 +2,13 @@ module LC.Syntax where
 
 import Control.Applicative((<|>), some)
 import Data.Char(isSpace)
-import Ideas.Common.Library hiding (apply, many)
-import Ideas.Utils.Parsing hiding ((<|>))
+import Data.Function(on)
+import Data.Maybe(fromMaybe)
 import Data.Set(Set)
 import Data.Set qualified as S
-import Data.Maybe (fromMaybe)
-import Data.Function(on)
+
+import Ideas.Common.Library
+import Ideas.Utils.Parsing hiding ((<|>))
 
 -- This module contains the λ-calculus AST and associated definitions for serialization/deserialization
 -- (parser, pretty-printer, and IsTerm instance), as well as functions for reducing and evaluating
@@ -162,22 +163,26 @@ step (App f a) = (`App` a) <$> step f <|> App f <$> step a
 step (Lam v e) = Lam v <$> step e
 
 -- Normalize a λ-term, taking care not to loop.
-normalize :: Expr -> Expr
+-- The additional 'Bool' is True if the term loops (i.e. has no normal form)
+-- or False if it reduces to a normal form.
+normalize :: Expr -> (Bool, Expr)
 normalize e = go (S.singleton e) e
   where
     go seen e =
       case step e of
-        Nothing -> e
+        Nothing -> (False, e)
         Just e'
-          -- This is very slow; The "proper" way would be to convert to
-          -- DeBruijn indices first, but that feels overkill for this exercise.
-          | any (αEquiv e') seen -> e'
+          -- This is very slow, but we're working with small terms so it's fine.
+          | any (αEquiv e') seen -> (True, e')
           | otherwise -> go (S.insert e' seen) e'
+
+loops :: Expr -> Bool
+loops = fst . normalize
 
 -- Compute αβ-equivalence (or α-equivalence modulo computation).
 -- Used for 'equivalence'.
 αβEquiv :: Expr -> Expr -> Bool
-αβEquiv = αEquiv `on` normalize
+αβEquiv = αEquiv `on` snd . normalize
 
 -- Normal forms as per https://en.wikipedia.org/wiki/Beta_normal_form
 -- Used for the 'ready' conditions in different exercises.

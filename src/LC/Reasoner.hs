@@ -1,6 +1,6 @@
 module LC.Reasoner where
 
-import Ideas.Common.Library hiding (many)
+import Ideas.Common.Library
 import Ideas.Main.Default
 
 import LC.Syntax
@@ -108,7 +108,7 @@ mkExercise (nfId, nfName, nfPredicate) (orderId, orderName, orderStrategy) =
   , parser        = parseExpr
   , equivalence   = withoutContext αβEquiv
   , similarity    = withoutContext αEquiv
-  , ready         = predicate nfPredicate
+  , ready         = predicate $ nfPredicate <||> loops -- If it loops, consider it normal form
   , examples      = examples'
   }
 
