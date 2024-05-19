@@ -53,7 +53,7 @@ parseExpr :: String -> Either String Expr
 parseExpr = parseSimple expr
   where
     ident :: Parser String
-    ident = some $ satisfy \c -> c `notElem` "λ\\.()" && not (isSpace c)
+    ident = some $ satisfy $ (`notElem` "λ\\.()") <&&> (not . isSpace)
 
     parens :: Parser a -> Parser a
     parens = between (char '(' *> spaces) (char ')' *> spaces)
@@ -165,24 +165,17 @@ step (Lam v e) = Lam v <$> step e
 -- Normalize a λ-term, taking care not to loop.
 -- The additional 'Bool' is True if the term loops (i.e. has no normal form)
 -- or False if it reduces to a normal form.
-normalize :: Expr -> (Bool, Expr)
-normalize e = go (S.singleton e) e
-  where
-    go seen e =
-      case step e of
-        Nothing -> (False, e)
-        Just e'
-          -- This is very slow, but we're working with small terms so it's fine.
-          | any (αEquiv e') seen -> (True, e')
-          | otherwise -> go (S.insert e' seen) e'
-
-loops :: Expr -> Bool
-loops = fst . normalize
+normalize :: Int -> Expr -> Expr
+normalize 0 e = e
+normalize fuel e =
+  case step e of
+    Nothing -> e
+    Just e' -> normalize (fuel - 1) e'
 
 -- Compute αβ-equivalence (or α-equivalence modulo computation).
 -- Used for 'equivalence'.
 αβEquiv :: Expr -> Expr -> Bool
-αβEquiv = αEquiv `on` snd . normalize
+αβEquiv = αEquiv `on` normalize 100
 
 -- Normal forms as per https://en.wikipedia.org/wiki/Beta_normal_form
 -- Used for the 'ready' conditions in different exercises.

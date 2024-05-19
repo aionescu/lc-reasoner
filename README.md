@@ -20,11 +20,11 @@ no variables (in other words, if no α-renaming is necessary).
 
 These rules are then combined into 2 different strategies, each corresponding to an evaluation order:
 
-* The normal-order strategy, which keeps applying the β-rule, and if it fails, then the α-rule (using the `|>` combinator), to the leftmost outermost subterm (using the `outermost` combinator).
+* The normal-order strategy, which keeps applying the β-rule, and if it fails, then the α-rule (using the left-biased `|>` combinator), to the leftmost outermost subterm (using the `outermost` combinator).
 * The applicative-order strategy, which applies the same rules, but to the leftmost _innermost_ subterm instead.
 
 Using these rules and strategies, the domain reasoner exposes 6 exercises, one for each combination of normal form
-and reduction order. Each exercise uses a different `ready` predicate to check for the appropiate normal form. The α-equivalence relation is used to check for the `similarity` of terms, and αβ-equivalence is used when checking for `equivalence`. All these operations take care to not enter an infinite loop when reducing terms with no normal form (e.g. `(λx. x x) (λx. x x)`).
+and reduction order. Each exercise uses a different `ready` predicate to check for the appropiate normal form. The α-equivalence relation is used to check the `similarity` of terms, and αβ-equivalence is used when checking for `equivalence` (with a finite amount of fuel, to avoid infinite loops on terms such as the Y-combinator).
 
 This domain reasoner could be of great utility to students learning about the Lambda Calculus, as it can help them learn
 the term reduction process (which usually feels daunting due to the number of steps required) in a gradual fashion,

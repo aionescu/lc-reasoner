@@ -23,11 +23,11 @@ examples' = examplesWithDifficulty $ easy <> medium <> hard
     medium =
       (Medium,) . parseKnown <$>
       [ "(λx y. y) (λx. y)"
-      , "(λa. a) (λx. (λy. y) z ((λx. x) w))"
       , "(λx. x ((λy. y) z)) w"
       , "(λf x. f (f x)) x"
       , "(λf x y. f (f x y)) x y"
       , "(λx. x x) ((λy. y y) z)"
+      , "(λa. a) (λx. (λy. y) z ((λx. x) w))"
       ]
 
     hard =
@@ -36,7 +36,8 @@ examples' = examplesWithDifficulty $ easy <> medium <> hard
       , "(λZ S +. + (S (S Z)) (S (S Z))) (λf z. z) (λn f z. f (n f z)) (λm n f z. m f (n f z))" -- Evaluate 2 + 2 in Church numerals
       , "(λZ S *. * (S (S (S Z))) (S (S Z))) (λf z. z) (λn f z. f (n f z)) (λm n f z. m (n f) z)" -- Evaluate 3 * 2 in Church numerals
       , "(λZ S + *. + (S Z) (* (S (S Z)) (S (S (S Z))))) (λf z. z) (λn f z. f (n f z)) (λm n f z. m f (n f z)) (λm n f z. m (n f) z)" -- Evaluate 1 + 2 * 3 in Church numerals
-      , "(λx. x x) (λ💀. 💀 💀)"
+      , "(λx. x x) (λ💀. 💀 💀)" -- Parser accepts (almost) anything as identifiers :)
+      , "λf. (λx. x x) (λx. f (x x))" -- Y combinator
       ]
 
 -- Apply a β-reduction, if no α-renaming is needed.
@@ -108,7 +109,7 @@ mkExercise (nfId, nfName, nfPredicate) (orderId, orderName, orderStrategy) =
   , parser        = parseExpr
   , equivalence   = withoutContext αβEquiv
   , similarity    = withoutContext αEquiv
-  , ready         = predicate $ nfPredicate <||> loops -- If it loops, consider it normal form
+  , ready         = predicate nfPredicate
   , examples      = examples'
   }
 
