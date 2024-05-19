@@ -3,7 +3,7 @@ module LC.Reasoner where
 import Ideas.Common.Library hiding (many)
 import Ideas.Main.Default
 
-import LC.Syntax.Named
+import LC.Syntax
 
 -- This module contains the definition of the Domain Reasoner,
 -- including rule and strategy definitions.

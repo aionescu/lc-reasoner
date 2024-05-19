@@ -36,8 +36,7 @@ executable lc-reasoner
   main-is: Main.hs
 
   other-modules:
-    LC.Syntax.Named
-    LC.Syntax.DeBruijn
+    LC.Syntax
     LC.Reasoner
 
   build-depends:

@@ -1,4 +1,4 @@
-module LC.Syntax.Named where
+module LC.Syntax where
 
 import Control.Applicative((<|>), some)
 import Data.Char(isSpace)
@@ -9,8 +9,9 @@ import Data.Set qualified as S
 import Data.Maybe (fromMaybe)
 import Data.Function(on)
 
--- This module contains the λ-calculus AST and associated definitions:
--- parser and pretty-printer, IsTerm instance, substitution and free vars etc.
+-- This module contains the λ-calculus AST and associated definitions for serialization/deserialization
+-- (parser, pretty-printer, and IsTerm instance), as well as functions for reducing and evaluating
+-- λ-terms (substitution, normalization, α-equivalence, checking normal forms etc.)
 
 -- AST definition
 
@@ -21,6 +22,29 @@ data Expr
   | App Expr Expr
   | Lam Ident Expr
   deriving stock (Eq, Ord, Show, Read)
+
+-- IsTerm instance
+
+varSymbol :: Symbol
+varSymbol = newSymbol "Var"
+
+appSymbol :: Symbol
+appSymbol = newSymbol "App"
+
+lamSymbol :: Symbol
+lamSymbol = newSymbol "Lam"
+
+instance IsTerm Expr where
+  toTerm :: Expr -> Term
+  toTerm (Var v) = unary varSymbol (TVar v)
+  toTerm (App f a) = binary appSymbol (toTerm f) (toTerm a)
+  toTerm (Lam v e) = binary lamSymbol (TVar v) (toTerm e)
+
+  termDecoder :: TermDecoder Expr
+  termDecoder =
+    tCon1 varSymbol Var tVar
+    <|> tCon2 appSymbol App termDecoder termDecoder
+    <|> tCon2 lamSymbol Lam tVar termDecoder
 
 -- Parser & pretty-printer
 
@@ -55,7 +79,7 @@ prettyPrintExpr = go False
     parens False s = s
     parens True s = "(" <> s <> ")"
 
--- Free vars & substitutions
+-- Substitutions & α-renaming
 
 free :: Expr -> Set Ident
 free (Var v) = S.singleton v
@@ -119,6 +143,7 @@ substBuggy v e (Lam v' e')
   | otherwise {- v' `notFreeIn` e -} = Lam v' $ substBuggy v e e' -- Oops, we captured the variable
 
 -- Compute α-equivalence.
+-- Used for 'similarity'.
 αEquiv :: Expr -> Expr -> Bool
 αEquiv (Var v) (Var v') = v == v'
 αEquiv (App f a) (App f' a') = αEquiv f f' && αEquiv a a'
@@ -126,6 +151,8 @@ substBuggy v e (Lam v' e')
   | v == v' = αEquiv e e'
   | otherwise = αEquiv e $ substRenaming v' (Var v) e'
 αEquiv _ _ = False
+
+-- Normalization & checking normal forms
 
 -- Apply one reduction step to the given term (normal order).
 step :: Expr -> Maybe Expr
@@ -147,12 +174,15 @@ normalize e = go (S.singleton e) e
           | any (αEquiv e') seen -> e'
           | otherwise -> go (S.insert e' seen) e'
 
+-- Compute αβ-equivalence (or α-equivalence modulo computation).
+-- Used for 'equivalence'.
 αβEquiv :: Expr -> Expr -> Bool
 αβEquiv = αEquiv `on` normalize
 
 -- Normal forms as per https://en.wikipedia.org/wiki/Beta_normal_form
+-- Used for the 'ready' conditions in different exercises.
 
--- See definition in LC.Syntax.DeBruijn
+-- Checks whether the term is in β-normal form.
 isNormalForm :: Expr -> Bool
 isNormalForm Var{} = True
 isNormalForm (App Lam{} _) = False
@@ -164,34 +194,13 @@ hasNoHeadRedex Var{} = True
 hasNoHeadRedex (App f _) = hasNoHeadRedex f
 hasNoHeadRedex Lam{} = False
 
+-- Checks whether the term is in head normal form.
 isHeadNormalForm :: Expr -> Bool
 isHeadNormalForm Var{} = True
 isHeadNormalForm (App f _) = hasNoHeadRedex f
 isHeadNormalForm (Lam _ e) = isHeadNormalForm e
 
+-- Checks whether the term is in weak-head normal form.
 isWeakHeadNormalForm :: Expr -> Bool
 isWeakHeadNormalForm Lam{} = True
 isWeakHeadNormalForm e = isHeadNormalForm e
-
--- IsTerm instance
-
-varSymbol :: Symbol
-varSymbol = newSymbol "Var"
-
-appSymbol :: Symbol
-appSymbol = newSymbol "App"
-
-lamSymbol :: Symbol
-lamSymbol = newSymbol "Lam"
-
-instance IsTerm Expr where
-  toTerm :: Expr -> Term
-  toTerm (Var v) = unary varSymbol (TVar v)
-  toTerm (App f a) = binary appSymbol (toTerm f) (toTerm a)
-  toTerm (Lam v e) = binary lamSymbol (TVar v) (toTerm e)
-
-  termDecoder :: TermDecoder Expr
-  termDecoder =
-    tCon1 varSymbol Var tVar
-    <|> tCon2 appSymbol App termDecoder termDecoder
-    <|> tCon2 lamSymbol Lam tVar termDecoder
