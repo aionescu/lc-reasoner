@@ -12,7 +12,7 @@ import LC.Syntax.Named
 -- expressions to De Bruijn indices, then reduce them using normalization-by-evaluation.
 
 -- The DeBruijn-based syntax is never exposed to the student, it's only used internally
--- for checking equivalences.
+-- for checking equivalences and normal forms.
 
 -- DeBruijn-indexed expressions
 data DBExpr
@@ -65,17 +65,17 @@ quote _vars (VNeu (NFree v)) = DBFree v
 quote vars (VNeu (NApp f a)) = DBApp (quote vars $ VNeu f) (quote vars a)
 quote vars (VLam env e) = DBLam $ quote (vars + 1) $ eval (VNeu (NVar vars) : env) e
 
-normalize :: DBExpr -> DBExpr
-normalize = quote 0 . eval []
+normalize' :: DBExpr -> DBExpr
+normalize' = quote 0 . eval []
 
 -- For 'similarity'
-αEquiv :: Expr -> Expr -> Bool
-αEquiv = (==) `on` deBruijn
+αEquiv' :: Expr -> Expr -> Bool
+αEquiv' = (==) `on` deBruijn
 
 -- For 'equivalence'
-αβEquiv :: Expr -> Expr -> Bool
-αβEquiv = (==) `on` normalize . deBruijn
+αβEquiv' :: Expr -> Expr -> Bool
+αβEquiv' = (==) `on` normalize' . deBruijn
 
 -- For 'ready'
-isNormalForm :: Expr -> Bool
-isNormalForm (deBruijn -> e) = e == normalize e
+isNormalForm' :: Expr -> Bool
+isNormalForm' (deBruijn -> e) = e == normalize' e
