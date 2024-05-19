@@ -21,7 +21,7 @@ data Expr
   = Var Ident
   | App Expr Expr
   | Lam Ident Expr
-  deriving stock (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read)
 
 -- IsTerm instance
 

@@ -10,10 +10,7 @@ executable lc-reasoner
   default-extensions:
     BlockArguments
     LambdaCase
-    RecordWildCards
     ViewPatterns
-    DerivingStrategies
-    PatternSynonyms
 
   other-extensions:
     StrictData
@@ -25,7 +22,6 @@ executable lc-reasoner
     -Wall
     -Wcompat
     -Widentities
-    -Wmissing-deriving-strategies
     -Wno-name-shadowing
     -Wpartial-fields
     -Wprepositive-qualified-module
