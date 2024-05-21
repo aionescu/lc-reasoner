@@ -103,33 +103,32 @@ trySubst v e (Lam v' e')
   | otherwise = Nothing
 
 -- α-rename the first subterm that would prevent substitution.
-αRename :: Ident -> Expr -> Expr -> Expr
+αRename :: Ident -> Expr -> Expr -> Maybe Expr
 αRename v e e' = go S.empty v e e'
   where
-    go :: Set Ident -> Ident -> Expr -> Expr -> Expr
-    go _ _ _ (Var v) = Var v
-    go all v e (App f a) = App (go all v e f) (go all v e a)
-    go all v e (Lam v' e')
-      | v == v' = Lam v' e'
-      | v' `notFreeIn` e = Lam v' $ go (S.insert v' all) v e e'
-      | otherwise = freshen (S.insert v' all) v' e'
+    -- 'go' returns Nothing if the term does not require any α-renaming,
+    -- or a Just containing the result of α-renaming the first subterm.
+    go :: Set Ident -> Ident -> Expr -> Expr -> Maybe Expr
+    go _ _ _ Var{} = Nothing
+    go seen v e (App f a) = (`App` a) <$> go seen v e f <|> App f <$> go seen v e a
+    go seen v e (Lam v' e')
+      | v == v' = Nothing
+      | v' `notFreeIn` e = Lam v' <$> go (S.insert v' seen) v e e'
+      | otherwise = Just $ freshen (S.insert v' seen) v' e'
 
     -- Generate a fresh name for the given λ-abstraction.
     freshen :: Set Ident -> Ident -> Expr -> Expr
-    freshen all v e = Lam v' $ fromMaybe (error "freshen: Unreachable") $ trySubst v (Var v') e
+    freshen seen v e = Lam v' $ fromMaybe (error "freshen: Unreachable") $ trySubst v (Var v') e
       where
-        v' = next all v
+        v' = until (`S.notMember` seen) (<> "'") v
 
-        next all v
-          | S.notMember v all = v
-          | otherwise = next all (v <> "'")
-
--- Substitute a variable in an expression, performing α-renaming if necessary.
+-- Substitute a variable in an expression, performing as many α-renamings as necessary.
 substRenaming :: Ident -> Expr -> Expr -> Expr
-substRenaming v e e' =
-  case trySubst v e e' of
-    Just e'' -> e''
-    Nothing -> fromMaybe (error "substRenaming: Unreachable") $ trySubst v e $ αRename v e e'
+substRenaming v e e' = fromMaybe (error "substRenaming: Unreachable") $ trySubst v e $ αRenameMany v e e'
+  where
+    -- Perform as many α-renamings as necessary to allow the substitution.
+    αRenameMany :: Ident -> Expr -> Expr -> Expr
+    αRenameMany v e e' = maybe e' (αRenameMany v e) $ αRename v e e'
 
 -- Substitute a variable in the given expression.
 -- This implementation doesn't consider the "freshness" condition,
@@ -167,10 +166,7 @@ step (Lam v e) = Lam v <$> step e
 -- or False if it reduces to a normal form.
 normalize :: Int -> Expr -> Expr
 normalize 0 e = e
-normalize fuel e =
-  case step e of
-    Nothing -> e
-    Just e' -> normalize (fuel - 1) e'
+normalize fuel e = maybe e (normalize $ fuel - 1) $ step e
 
 -- Compute αβ-equivalence (or α-equivalence modulo computation).
 -- Used for 'equivalence'.

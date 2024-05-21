@@ -26,6 +26,7 @@ examples' = examplesWithDifficulty $ easy <> medium <> hard
       , "(λx. x ((λy. y) z)) w"
       , "(λf x. f (f x)) x"
       , "(λf x y. f (f x y)) x y"
+      , "(λf. (λx. f (f x)) (λx. f (f x))) x"
       , "(λx. x x) ((λy. y y) z)"
       , "(λa. a) (λx. (λy. y) z ((λx. x) w))"
       ]
@@ -54,7 +55,7 @@ examples' = examplesWithDifficulty $ easy <> medium <> hard
 αRule =
   describe "α-rename" $
     makeRule "lc.alpha" \case
-      App (Lam v e) a | Nothing <- trySubst v a e -> Just $ App (Lam v $ αRename v a e) a
+      App (Lam v e) a | Just e' <- αRename v a e -> Just $ App (Lam v e') a
       _ -> Nothing
 
 -- Buggy β-reduction which changes the meaning of the expression.
