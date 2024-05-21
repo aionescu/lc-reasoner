@@ -154,19 +154,18 @@ substBuggy v e (Lam v' e')
 
 -- Normalization & checking normal forms
 
--- Apply one reduction step to the given term (normal order).
-step :: Expr -> Maybe Expr
-step Var{} = Nothing
-step (App (Lam v e) a) = Just $ substRenaming v a e
-step (App f a) = (`App` a) <$> step f <|> App f <$> step a
-step (Lam v e) = Lam v <$> step e
+-- Apply one β-reduction to the given term (normal order).
+βReduce :: Expr -> Maybe Expr
+βReduce Var{} = Nothing
+βReduce (App (Lam v e) a) = Just $ substRenaming v a e
+βReduce (App f a) = (`App` a) <$> βReduce f <|> App f <$> βReduce a
+βReduce (Lam v e) = Lam v <$> βReduce e
 
 -- Normalize a λ-term, taking care not to loop.
--- The additional 'Bool' is True if the term loops (i.e. has no normal form)
--- or False if it reduces to a normal form.
+-- If 'fuel' is exhausted, returns the partially-normalized term.
 normalize :: Int -> Expr -> Expr
 normalize 0 e = e
-normalize fuel e = maybe e (normalize $ fuel - 1) $ step e
+normalize fuel e = maybe e (normalize $ fuel - 1) $ βReduce e
 
 -- Compute αβ-equivalence (or α-equivalence modulo computation).
 -- Used for 'equivalence'.
