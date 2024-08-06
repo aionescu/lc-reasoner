@@ -87,6 +87,9 @@ free (Var v) = S.singleton v
 free (App f a) = free f <> free a
 free (Lam v e) = S.delete v $ free e
 
+freeIn :: Ident -> Expr -> Bool
+freeIn v = S.member v . free
+
 notFreeIn :: Ident -> Expr -> Bool
 notFreeIn v = S.notMember v . free
 
@@ -161,25 +164,32 @@ substBuggy v e (Lam v' e')
 βReduce (App f a) = (`App` a) <$> βReduce f <|> App f <$> βReduce a
 βReduce (Lam v e) = Lam v <$> βReduce e
 
+ηReduce :: Expr -> Maybe Expr
+ηReduce Var{} = Nothing
+ηReduce (App f a) = (`App` a) <$> ηReduce f <|> App f <$> ηReduce a
+ηReduce (Lam v (App f (Var v'))) | v == v', v `notFreeIn` f = Just f
+ηReduce (Lam v e) = Lam v <$> ηReduce e
+
 -- Normalize a λ-term, taking care not to loop.
 -- If 'fuel' is exhausted, returns the partially-normalized term.
 normalize :: Int -> Expr -> Expr
 normalize 0 e = e
-normalize fuel e = maybe e (normalize $ fuel - 1) $ βReduce e
+normalize fuel e = maybe e (normalize $ fuel - 1) $ βReduce e <|> ηReduce e
 
--- Compute αβ-equivalence (or α-equivalence modulo computation).
+-- Compute αβη-equivalence (or α-equivalence modulo computation).
 -- Used for 'equivalence'.
-αβEquiv :: Expr -> Expr -> Bool
-αβEquiv = αEquiv `on` normalize 100
+αβηEquiv :: Expr -> Expr -> Bool
+αβηEquiv = αEquiv `on` normalize 100
 
 -- Normal forms as per https://en.wikipedia.org/wiki/Beta_normal_form
 -- Used for the 'ready' conditions in different exercises.
 
--- Checks whether the term is in β-normal form.
+-- Checks whether the term is in βη-normal form.
 isNormalForm :: Expr -> Bool
 isNormalForm Var{} = True
 isNormalForm (App Lam{} _) = False
 isNormalForm (App f a) = isNormalForm f && isNormalForm a
+isNormalForm (Lam v (App f (Var v'))) | v == v', v `notFreeIn` f = False
 isNormalForm (Lam _ e) = isNormalForm e
 
 hasNoHeadRedex :: Expr -> Bool

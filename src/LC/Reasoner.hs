@@ -15,6 +15,7 @@ examples' = examplesWithDifficulty $ easy <> medium <> hard
     easy =
       (Easy,) . parseKnown <$>
       [ "(λx. x) y"
+      , "(λy x. f x) y"
       , "(λx. x) (λy. y)"
       , "(λx y. y x) z w"
       , "(λx. x x) (λx. x)"
@@ -25,6 +26,7 @@ examples' = examplesWithDifficulty $ easy <> medium <> hard
       [ "(λx y. y) (λx. y)"
       , "(λx. x ((λy. y) z)) w"
       , "(λf x. f (f x)) x"
+      , "(λx. f ((λy. y) x) x) y"
       , "(λf x y. f (f x y)) x y"
       , "(λf. (λx. f (f x)) (λx. f (f x))) x"
       , "(λx. x x) ((λy. y y) z)"
@@ -58,13 +60,31 @@ examples' = examplesWithDifficulty $ easy <> medium <> hard
       App (Lam v e) a | Just e' <- αRename v a e -> Just $ App (Lam v e') a
       _ -> Nothing
 
--- Buggy β-reduction which changes the meaning of the expression.
+-- Buggy β-reduction which doesn't avoid variable capture, thus
+-- changing the meaning of the expression.
 βRuleBuggy :: Rule Expr
 βRuleBuggy =
   describe "β-reduce (buggy)" $
     setBuggy True $
       makeRule "lc.beta.buggy" \case
         App (Lam v e) a | Nothing <- trySubst v a e -> Just $ substBuggy v a e
+        _ -> Nothing
+
+-- Apply an η-reduction, if possible.
+ηRule :: Rule Expr
+ηRule =
+  describe "η-reduce" $
+    makeRule "lc.eta" \case
+      Lam v (App f (Var v')) | v == v', v `notFreeIn` f -> Just f
+      _ -> Nothing
+
+-- Buggy η-reduction that reduces 'λx. f x' to 'f' even if 'x' is free in 'f'.
+ηRuleBuggy :: Rule Expr
+ηRuleBuggy =
+  describe "η-reduce (buggy)" $
+    setBuggy True $
+      makeRule "lc.eta.buggy" \case
+        Lam v (App f (Var v')) | v == v', v `freeIn` f -> Just f
         _ -> Nothing
 
 -- As per https://en.wikipedia.org/wiki/Lambda_calculus#Reduction_strategies
@@ -76,15 +96,17 @@ examples' = examplesWithDifficulty $ easy <> medium <> hard
 
 normalOrderStrategy :: LabeledStrategy (Context Expr)
 normalOrderStrategy =
-  label "lc.norm"
-  $ outermost $ liftToContext $ βRuleBuggy .|. βRule |> αRule
+  label "lc.norm" $
+    outermost (liftToContext $ βRule |> αRule |> ηRule)
+    |> outermost (liftToContext $ βRuleBuggy .|. ηRuleBuggy)
 
 applicativeOrderStrategy :: LabeledStrategy (Context Expr)
 applicativeOrderStrategy =
-  label "lc.app"
-  $ innermost $ liftToContext $ βRuleBuggy .|. βRule |> αRule
+  label "lc.app" $
+    innermost (liftToContext $ βRule |> αRule |> ηRule)
+    |> innermost (liftToContext $ βRuleBuggy .|. ηRuleBuggy)
 
-normalForms :: [(String, String, Expr -> Bool)]
+normalForms :: [(String, String, Expr  -> Bool)]
 normalForms =
   [ ("nf", "normal form", isNormalForm)
   , ("hnf", "head normal form", isHeadNormalForm)
@@ -108,7 +130,7 @@ mkExercise (nfId, nfName, nfPredicate) (orderId, orderName, orderStrategy) =
   , prettyPrinter = prettyPrintExpr
   , navigation    = termNavigator
   , parser        = parseExpr
-  , equivalence   = withoutContext αβEquiv
+  , equivalence   = withoutContext αβηEquiv
   , similarity    = withoutContext αEquiv
   , ready         = predicate nfPredicate
   , examples      = examples'
